@@ -2,7 +2,7 @@
 
 Installation instructions:
 
-(1) Download and install Anaconda/miniconda.
+(1) If you don't have Python 3.7+, then download and install Anaconda/miniconda.
 
 (2) Make sure git is installed.
 
@@ -12,9 +12,9 @@ Installation instructions:
 
 (5) Activate the virtual environment with `conda activate autopk`
 
-(6) Clone the repo: `git clone https://github.com/ki-tools/autopk.git`
+(6) Clone the repo to a directory of your choice: `git clone https://github.com/ki-tools/autopk.git`
 
-(7) Navigate to the repo folder: `cd autopk`
+(7) Navigate to the repo directory: `cd autopk`
 
 (8) Install the repo: `pip install -e .`
 

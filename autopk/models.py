@@ -21,20 +21,14 @@ VAR_NAMES = {
     'calc_sd_1cmt_linear_infusion': ['A', 'alpha', 'Tinf'],
     'calc_sd_1cmt_linear_oral_1': ['A', 'alpha', 'ka'],
     'calc_sd_1cmt_linear_oral_1_lag': ['A', 'alpha', 'ka', 'Tlag'],
-    'calc_sd_1cmt_linear_oral_0': ['A', 'alpha', 'Tk0'],
-    'calc_sd_1cmt_linear_oral_0_lag': ['A', 'alpha', 'Tlag', 'Tk0'],
     'calc_sd_2cmt_linear_bolus': ['A', 'alpha', 'B', 'beta'],
     'calc_sd_2cmt_linear_infusion': ['A', 'alpha', 'B', 'beta', 'Tinf'],
     'calc_sd_2cmt_linear_oral_1': ['A', 'alpha', 'B', 'beta', 'ka'],
     'calc_sd_2cmt_linear_oral_1_lag': ['A', 'alpha', 'B', 'beta', 'ka', 'Tlag'],
-    'calc_sd_2cmt_linear_oral_0': ['A', 'alpha', 'B', 'beta', 'Tk0'],
-    'calc_sd_2cmt_linear_oral_0_lag': ['A', 'alpha', 'B', 'beta', 'Tlag', 'Tk0'],
     'calc_sd_3cmt_linear_bolus': ['A', 'alpha', 'B', 'beta', 'C', 'gamma'],
     'calc_sd_3cmt_linear_infusion': ['A', 'alpha', 'B', 'beta', 'C', 'gamma', 'Tinf'],
     'calc_sd_3cmt_linear_oral_1': ['A', 'alpha', 'B', 'beta', 'C', 'gamma', 'ka'],
-    'calc_sd_3cmt_linear_oral_1_lag': ['A', 'alpha', 'B', 'beta', 'C', 'gamma', 'ka', 'Tlag'],
-    'calc_sd_3cmt_linear_oral_0': ['A', 'alpha', 'B', 'beta', 'C', 'gamma', 'Tk0'],
-    'calc_sd_3cmt_linear_oral_0_lag': ['A', 'alpha', 'B', 'beta', 'C', 'gamma', 'Tlag', 'Tk0']
+    'calc_sd_3cmt_linear_oral_1_lag': ['A', 'alpha', 'B', 'beta', 'C', 'gamma', 'ka', 'Tlag']
 }
 
 
@@ -136,6 +130,12 @@ def cma_wrapper(x, y, model, std=0.1, popsize=5, restarts=5, log=True):
 
 
 def order_pfit(pfit, var_names):
+    """The fitting procedure has no constraint
+    that alpha > beta > gamma. 
+    
+    This function shuffles the final parameters
+    so that they fit this requirement.
+    """
     if 'beta' in var_names:
         A_ind = var_names.index('A')
         alpha_ind = var_names.index('alpha')
@@ -190,30 +190,7 @@ def calc_sd_1cmt_linear_oral_1_lag(x, *p):
     term2 = np.exp(-ka * (x[~flag] - Tlag))
     result[~flag] = scale * (term1 - term2)
     return result
-    
-    
-def calc_sd_1cmt_linear_oral_0(x, *p):
-    # 1.21
-    A, alpha, Tk0 = p
-    scale = A / (Tk0 * alpha)
-    flag = x <= Tk0
-    result = np.zeros(x.shape)
-    result[flag] = scale * (1 - np.exp(-alpha * x[flag]))
-    result[~flag] = scale * (1 - np.exp(-alpha * Tk0)) * np.exp(-alpha * (x[~flag] - Tk0))
-    return result
 
-
-def calc_sd_1cmt_linear_oral_0_lag(x, *p):
-    # 1.24
-    A, alpha, Tlag, Tk0 = p
-    result = np.zeros(x.shape)
-    scale = A / (Tk0 * alpha)
-    flag = (Tlag < x ) & (x <= Tlag + Tk0)
-    result[flag] = scale * (1 - np.exp(-alpha * (x[flag] - Tlag)))
-    result[~flag] = scale * (1 - np.exp(-alpha * Tk0)) * np.exp(-alpha * (x[~flag] - Tlag - Tk0))
-    result[x <= Tlag] = 0
-    return result
-    
     
 def calc_sd_2cmt_linear_bolus(x, *p):
     # 1.31
@@ -249,39 +226,6 @@ def calc_sd_2cmt_linear_oral_1_lag(x, *p):
     A, alpha, B, beta, ka, Tlag = p
     result = A * np.exp(-alpha * (x - Tlag)) + B * np.exp(-beta * (x - Tlag)) \
         - (A + B) * np.exp(-ka * (x - Tlag))
-    result[x <= Tlag] = 0
-    return result
-
-
-def calc_sd_2cmt_linear_oral_0(x, *p):
-    # 1.51
-    A, alpha, B, beta, Tk0 = p
-    scale1 = (A / (Tk0 * alpha))
-    scale2 = (B / (Tk0 * beta))
-    result = np.zeros(x.shape)
-    flag = x <= Tk0
-    term1 = (1 - np.exp(-alpha * x[flag]))
-    term2 = (1 - np.exp(-beta * x[flag]))
-    result[flag] = scale1 * term1 + scale2 * term2
-    term1 = (1 - np.exp(-alpha * Tk0)) * np.exp(-alpha * (x[~flag] - Tk0))
-    term2 = (1 - np.exp(-beta * Tk0)) * np.exp(-beta * (x[~flag] - Tk0))
-    result[~flag] = scale1 * term1 + scale2 * term2
-    return result
-
-
-def calc_sd_2cmt_linear_oral_0_lag(x, *p):
-    # 1.54
-    A, alpha, B, beta, Tlag, Tk0 = p
-    result = np.zeros(x.shape)
-    scale1 = A / (Tk0 * alpha)
-    scale2 = B / (Tk0 * beta)
-    flag = (Tlag < x ) & (x <= Tlag + Tk0)
-    term1 = (1 - np.exp(-alpha * (x[flag] - Tlag)))
-    term2 = (1 - np.exp(-beta * (x[flag] - Tlag)))
-    result[flag] = scale1 * term1 + scale2 * term2
-    term1 = (1 - np.exp(-alpha * Tk0)) * np.exp(-alpha * (x[~flag] - Tlag - Tk0))
-    term2 = (1 - np.exp(-beta * Tk0)) * np.exp(-beta * (x[~flag] - Tlag - Tk0)) 
-    result[~flag] = scale1 * term1 + scale2 * term2
     result[x <= Tlag] = 0
     return result
     
@@ -324,44 +268,5 @@ def calc_sd_3cmt_linear_oral_1_lag(x, *p):
     A, alpha, B, beta, C, gamma, ka, Tlag = p
     result = A * np.exp(-alpha * (x - Tlag)) + B * np.exp(-beta * (x - Tlag)) \
         + C * np.exp(-gamma * (x - Tlag)) - (A + B + C) * np.exp(-ka * (x - Tlag))
-    result[x <= Tlag] = 0
-    return result
-
-
-def calc_sd_3cmt_linear_oral_0(x, *p):
-    # 1.84
-    A, alpha, B, beta, C, gamma, Tk0 = p
-    result = np.zeros(x.shape)
-    scale1 = A / (Tk0 * alpha)
-    scale2 = B / (Tk0 * beta)
-    scale3 = C / (Tk0 * gamma)
-    flag = (x <= Tk0)
-    term1 = (1 - np.exp(-alpha * x[flag]))
-    term2 = (1 - np.exp(-beta * x[flag]))
-    term3 = (1 - np.exp(-gamma * x[flag]))
-    result[flag] = scale1 * term1 + scale2 * term2 + scale3 * term3
-    term1 = (1 - np.exp(-alpha * Tk0)) * np.exp(-alpha * (x[~flag] - Tk0))
-    term2 = (1 - np.exp(-beta * Tk0)) * np.exp(-beta * (x[~flag] - Tk0)) 
-    term3 = (1 - np.exp(-gamma * Tk0)) * np.exp(-gamma * (x[~flag] - Tk0)) 
-    result[~flag] = scale1 * term1 + scale2 * term2 + scale3 * term3
-    return result
-
-    
-def calc_sd_3cmt_linear_oral_0_lag(x, *p):
-    # 1.84
-    A, alpha, B, beta, C, gamma, Tlag, Tk0 = p
-    result = np.zeros(x.shape)
-    scale1 = A / (Tk0 * alpha)
-    scale2 = B / (Tk0 * beta)
-    scale3 = C / (Tk0 * gamma)
-    flag = (Tlag < x) & (x <= Tlag + Tk0)
-    term1 = (1 - np.exp(-alpha * (x[flag] - Tlag)))
-    term2 = (1 - np.exp(-beta * (x[flag] - Tlag)))
-    term3 = (1 - np.exp(-gamma * (x[flag] - Tlag)))
-    result[flag] = scale1 * term1 + scale2 * term2 + scale3 * term3
-    term1 = (1 - np.exp(-alpha * Tk0)) * np.exp(-alpha * (x[~flag] - Tlag - Tk0))
-    term2 = (1 - np.exp(-beta * Tk0)) * np.exp(-beta * (x[~flag] - Tlag - Tk0)) 
-    term3 = (1 - np.exp(-gamma * Tk0)) * np.exp(-gamma * (x[~flag] - Tlag - Tk0)) 
-    result[~flag] = scale1 * term1 + scale2 * term2 + scale3 * term3
     result[x <= Tlag] = 0
     return result

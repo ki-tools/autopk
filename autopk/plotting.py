@@ -1,6 +1,8 @@
 import numpy as np
+from autopk.models import *
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 sns.set(context='talk')
 
 
@@ -15,7 +17,7 @@ def factor_int(n):
 
 def plot_fit_grid(df, exp, labels, results_dict, save_path, plot_type='fit'):
     n_rows, n_cols = factor_int(len(labels))
-    plt.figure(figsize=(n_rows * 6, n_cols * 6), tight_layout=True)
+    plt.figure(figsize=(n_cols * 6, n_rows * 6), tight_layout=True)
     for i, label in enumerate(labels):
         pfit_dict, bic_dict = results_dict[label]
         df_sub = df[df.Label == label]
@@ -48,11 +50,11 @@ def plot_fit_grid(df, exp, labels, results_dict, save_path, plot_type='fit'):
         else:
             plt.ylabel('(Data - Fit) / Data')
         plt.xlabel('Time')
-        
+    
     plt.figlegend(loc='center left', bbox_to_anchor=(1, 0.5))
     if plot_type == 'fit':
         plt.suptitle(f'Fits for {exp}', y=1.03)
     else:
         plt.suptitle(f'Relative Residuals for {exp}', y=1.03)
-        
+
     plt.savefig(save_path, bbox_inches="tight")

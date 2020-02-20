@@ -14,13 +14,10 @@ import statsmodels.api as sm
 all_models = [    
     calc_sd_1cmt_linear_bolus,
     calc_sd_1cmt_linear_infusion,
-    calc_sd_1cmt_linear_oral_0,
     calc_sd_2cmt_linear_bolus,
     calc_sd_2cmt_linear_infusion,
-    calc_sd_2cmt_linear_oral_0,
     calc_sd_3cmt_linear_bolus,
-    calc_sd_3cmt_linear_infusion,
-    calc_sd_3cmt_linear_oral_0
+    calc_sd_3cmt_linear_infusion
 ]
 
 
@@ -182,11 +179,14 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
                 break
     
     if unique_labels is False:
-        print('The individual animal time-series labels i the Label column are not unique. Will concatenate with the Experiment column.')
+        print('The individual animal time-series labels in the Label column are not unique. Will concatenate with the Experiment column.')
         df['Label'] = df['Experiment'] + ' - ' + df['Label']
 
     all_labels = pd.unique(df['Label'])
-    '''
+
+    #with open(analysis_path / 'data.pickle', 'rb') as f:
+    #    df, results_dict, exp2label, pfits_df, probs_df = pickle.load(f)
+
     # run the parallel fit job
     results = Parallel(n_jobs=n_cores)(delayed(fit)(df, models, label) for label in all_labels)
     results_dict = {}
@@ -198,7 +198,7 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
     for exp, label in zip(df['Experiment'], df['Label']):
         if label not in exp2label[exp]: 
             exp2label[exp].append(label)
-
+    
     # plot all results
     for exp, labels in exp2label.items():
         plot_fit_grid(df, exp, labels, results_dict, save_path=analysis_path / f'fits_{exp}.png', plot_type='fit')
@@ -208,12 +208,11 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
     pfits_df, bic_df, probs_df = construct_result_csvs(results_dict, exp2label, models)
     pfits_df.to_csv(analysis_path / 'fitting_details.csv', index=False)
     probs_df.reset_index().to_csv(analysis_path / 'model_selection_probabilities.csv', index=False)
-    
+      
     with open(analysis_path / 'data.pickle', 'wb') as f:
         pickle.dump((df, results_dict, exp2label, pfits_df, probs_df), f)
-    '''
-    with open(analysis_path / 'data.pickle', 'rb') as f:
-        df, results_dict, exp2label, pfits_df, probs_df = pickle.load(f)
+
+
     print(f'Model selection done. Check the {analysis_path} for model fit figures, fit detail CSV and model selection CSV.')
     
     print(f'Now performing second-stage OLS-based covariate modeling.')

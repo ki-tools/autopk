@@ -14,7 +14,7 @@ and tell it which models to look at it will:
 
 ## Installation Instructions
 
-1. Download and install the late version of Anaconda or miniconda.
+1. Download and install the late version of [Anaconda](https://docs.anaconda.com/anaconda/install/) or [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 2. Make sure git is installed.
 3. Open the Anaconda command prompt or a terminal where conda is accessible.
 4. Make a new virtual environment with `conda create -n autopk python=3.7`

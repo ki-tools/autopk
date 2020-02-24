@@ -9,6 +9,7 @@ from collections import Counter, defaultdict
 from joblib import Parallel, delayed
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
+from io import StringIO
 
 
 all_models = [    
@@ -183,10 +184,10 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
         df['Label'] = df['Experiment'] + ' - ' + df['Label']
 
     all_labels = pd.unique(df['Label'])
-
-    #with open(analysis_path / 'data.pickle', 'rb') as f:
-    #    df, results_dict, exp2label, pfits_df, probs_df = pickle.load(f)
-
+    '''
+    with open(analysis_path / 'data.pickle', 'rb') as f:
+        df, results_dict, exp2label, pfits_df, probs_df = pickle.load(f)
+    '''
     # run the parallel fit job
     results = Parallel(n_jobs=n_cores)(delayed(fit)(df, models, label) for label in all_labels)
     results_dict = {}
@@ -211,12 +212,26 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
       
     with open(analysis_path / 'data.pickle', 'wb') as f:
         pickle.dump((df, results_dict, exp2label, pfits_df, probs_df), f)
-
-
-    print(f'Model selection done. Check the {analysis_path} for model fit figures, fit detail CSV and model selection CSV.')
+ 
+    # writing out the original CSV but with predictions and residuals appended
+    for model in models:
+        params_per_label = np.vstack(df['Label'].apply(lambda label: results_dict[label][0][model.__name__]))
+        x = df['Time'].values
+        y = df['Value'].values
+        preds = []
+        residuals = []
+        for i in range(len(x)):
+            pred = model(x[i], *params_per_label[i, :])
+            preds.append(pred)
+            residuals.append( ((y[i] - pred) / y[i]))
+        df['Prediction'] = preds
+        df['Residual'] = residuals
+        df.to_csv(analysis_path / f'predictions_and_residuals_for_{model.__name__}.csv', sep=',', index=False)
+    
+    print(f'Model selection done. Check the {analysis_path} for model fit figures, fit overview CSV, prediction/residual CSVs, and model selection CSV.')
     
     print(f'Now performing second-stage OLS-based covariate modeling.')
-    df_covs = df.drop(['Time', 'Value'], axis=1).drop_duplicates()
+    df_covs = df.drop(['Time', 'Value', 'Prediction', 'Residual'], axis=1).drop_duplicates()
     covariates = list(df_covs.columns)
     covariates.remove('Experiment')
     covariates.remove('Label')
@@ -228,6 +243,7 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
         for model in models:
             pfits_df_sub = pfits_df[pfits_df['Model'] == model.__name__].dropna(axis=1, how='all')
             pfits_df_sub = df_covs.merge(pfits_df_sub, how='inner', on=['Experiment', 'Label'])
+            dfs = []
             with open(analysis_path / f'OLS_per_parameters_results_for_{model.__name__}.txt', 'w') as f:
                 for y in VAR_NAMES[model.__name__]:
                     if y in ['alpha', 'beta', 'gamma']:
@@ -238,6 +254,12 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
                     pfits_df_sub[output] = pfits_df_sub[output].astype(float)
                     res = smf.ols(formula=f'{output} ~ {all_covs}', data=pfits_df_sub).fit()
                     f.write(str(res.summary(title=f'OlS Results: {output} ~ {all_covs}')) + '\n' * 5)
+                    results_df = pd.read_csv(StringIO(res.summary().tables[1].as_csv()), index_col=0)
+                    results_df.index = [y + ' ' + i for i in results_df.index]
+                    dfs.append(results_df)
+            results_single_df = pd.concat(dfs)
+            results_single_df.to_csv(analysis_path / f'OLS_per_parameters_results_for_{model.__name__}.csv', sep=',')
+
         
         print(f'OLS covaritae analysis done. Check the {analysis_path} for coefficient summaries.')
 

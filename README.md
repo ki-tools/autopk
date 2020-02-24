@@ -53,4 +53,6 @@ and the results will be put into the already-existing `autopk/sample_data` direc
 - residuals_A.png, residuals_B.png - Similar to fits_*.png but with normalized residuals instead.
 - fitting_details.csv - Contains the actual fitted parameters for all 6 models for all individual time-series, as well as the BIC values.
 - model_selection_probabilities.csv - Probabilities of best model for each group. Note that some columns are missing here - these are just 0 probabilities for all rows.
-- OLS_per_parameters_results_* - One file per model. These are the results of the OLS fit from covariate inputs to fitted parameter outputs. Note that the `alpha`, `beta` and `gamma` parameters are converted into half-lives with `log(2) / alpha`.
+- OLS_per_parameters_results_for_*.txt - One file per model. These are the results of the OLS fit from covariate inputs to fitted parameter outputs. Note that the `alpha`, `beta` and `gamma` parameters are converted into half-lives with `log(2) / alpha`.
+- OLS_per_parameters_results_for_*.csv - One file per model. Same as above, but in an easy-to-import CSV form. 
+- predictions_and_residuals_for_*.csv - One file per model. A copy of the original data CSV, but with two new columns: 'Prediction' and 'Residual'. The residuals are in the form of (data - prediction) / data.

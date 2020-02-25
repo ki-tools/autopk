@@ -109,7 +109,7 @@ def estimate_bounds_and_initial_params(x, y, model_name):
     return upper_bounds, lower_bounds, p_init
 
 
-def cma_wrapper(x, y, model, std=0.1, popsize=5, restarts=5, log=True):
+def cma_wrapper(x, y, model, std=0.1, popsize=10, restarts=3, log=True):
     loss_f = lambda p: weighted_mean_squares(y, model(x, *p), log)
     upper_bounds, lower_bounds, p_init = estimate_bounds_and_initial_params(x, y, model.__name__)
     result = cma.fmin(

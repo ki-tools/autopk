@@ -65,7 +65,7 @@ def clean_df(df, zeros_as_missing=True):
     # remove rows where the value is missing
     df = df[~pd.isnull(df['Value'])]
     
-    return df.apply(pd.to_numeric, downcast='float', errors='ignore')
+    return df
 
 
 def construct_result_csvs(results_dict, exp2label, models):
@@ -181,7 +181,7 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
     
     if unique_labels is False:
         print('The individual animal time-series labels in the Label column are not unique. Will concatenate with the Experiment column.')
-        df['Label'] = df['Experiment'] + ' - ' + df['Label']
+        df['Label'] = df['Experiment'].astype(str) + ' - ' + df['Label'].astype(str)
 
     all_labels = pd.unique(df['Label'])
     '''
@@ -212,10 +212,12 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
       
     with open(analysis_path / 'data.pickle', 'wb') as f:
         pickle.dump((df, results_dict, exp2label, pfits_df, probs_df), f)
- 
+    
     # writing out the original CSV but with predictions and residuals appended
     for model in models:
-        params_per_label = np.vstack(df['Label'].apply(lambda label: results_dict[label][0][model.__name__]))
+        params_per_label = np.vstack(df['Label'].apply(lambda label: results_dict[label][0][model.__name__] 
+                                                       if label in results_dict
+                                                       else [np.nan] * len(VAR_NAMES[model.__name__])))
         x = df['Time'].values
         y = df['Value'].values
         preds = []
@@ -236,7 +238,17 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
     covariates.remove('Experiment')
     covariates.remove('Label')
     all_covs = " + ".join(covariates)
-    
+    df_covs[covariates] = df_covs[covariates].apply(pd.to_numeric, downcast='float', errors='ignore')
+
+    # normalize the numerical covariates
+    numerical_cols = df_covs[covariates].select_dtypes(include=[np.number]).columns.values
+    print('Normalizing the following numerical covariate columns:', numerical_cols)
+    for col in numerical_cols:
+        strictly_positive = np.all(df_covs.loc[:, col].values > 0)
+        if strictly_positive:
+            df_covs.loc[:, col] = np.log(df_covs.loc[:, col].values)
+        df_covs.loc[:, col] -= np.median(df_covs.loc[:, col].values)
+
     if len(all_covs) == 0:
         print('There are no covariates, so no covariate analysis will be performed.')
     else:
@@ -246,11 +258,14 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
             dfs = []
             with open(analysis_path / f'OLS_per_parameters_results_for_{model.__name__}.txt', 'w') as f:
                 for y in VAR_NAMES[model.__name__]:
+                    y_vec = pfits_df_sub[y]
+                    y_vec = y_vec.apply(pd.to_numeric, downcast='float', errors='ignore').values
                     if y in ['alpha', 'beta', 'gamma']:
-                        output = 'thalf_' + y
-                        pfits_df_sub[output] = np.log(2) / pfits_df_sub[y]
+                        output = 'log_thalf_' + y
+                        pfits_df_sub[output] = np.log1p(np.log(2) / y_vec)
                     else:
-                        output = y
+                        output = 'log_' + y
+                        pfits_df_sub[output] = np.log1p(y_vec)
                     pfits_df_sub[output] = pfits_df_sub[output].astype(float)
                     res = smf.ols(formula=f'{output} ~ {all_covs}', data=pfits_df_sub).fit()
                     f.write(str(res.summary(title=f'OlS Results: {output} ~ {all_covs}')) + '\n' * 5)
@@ -260,8 +275,7 @@ def model_selection(csv_data_path, model_names, compartments, n_cores, analysis_
             results_single_df = pd.concat(dfs)
             results_single_df.to_csv(analysis_path / f'OLS_per_parameters_results_for_{model.__name__}.csv', sep=',')
 
-        
-        print(f'OLS covaritae analysis done. Check the {analysis_path} for coefficient summaries.')
+        print(f'OLS covariate analysis done. Check the {analysis_path} for coefficient summaries.')
 
 
 cli.add_command(model_selection)

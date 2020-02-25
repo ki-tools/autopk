@@ -16,9 +16,10 @@ def factor_int(n):
     
 
 def plot_fit_grid(df, exp, labels, results_dict, save_path, plot_type='fit'):
-    n_rows, n_cols = factor_int(len(labels))
+    valid_labels = [i for i in labels if i in results_dict]
+    n_rows, n_cols = factor_int(len(valid_labels))
     plt.figure(figsize=(n_cols * 6, n_rows * 6), tight_layout=True)
-    for i, label in enumerate(labels):
+    for i, label in enumerate(valid_labels):
         pfit_dict, bic_dict = results_dict[label]
         df_sub = df[df.Label == label]
         x = df_sub['Time'].values

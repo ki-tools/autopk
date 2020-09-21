@@ -114,7 +114,7 @@ def cma_wrapper(x, y, model, std=0.1, popsize=10, restarts=3, log=True):
     upper_bounds, lower_bounds, p_init = estimate_bounds_and_initial_params(x, y, model.__name__)
     result = cma.fmin(
         loss_f,
-        f'np.random.uniform({list(lower_bounds)}, {list(upper_bounds)})', 
+        lambda: np.random.uniform(lower_bounds, upper_bounds), 
         std,
         {
             'bounds': [lower_bounds, upper_bounds],
